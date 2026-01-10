@@ -35,10 +35,55 @@ function login($usuario, $clave){
 function requirePago(){
   // Los admins no necesitan declarar pago
   if(esAdmin()) return;
-  $pago = $_SESSION['pago_hasta'] ?? null;
-  // si no hay fecha o ya expiró, mandar a la sección de declarar pago
-  if(!$pago || $pago < date('Y-m-d')){
+  if(!hasPago()){
     header('Location: panel.php?s=pago'); exit;
+  }
+}
+
+function hasPago(){
+  if(empty($_SESSION['uid'])) return false;
+  $pago = $_SESSION['pago_hasta'] ?? null;
+  // si la sesión tiene fecha válida
+  if($pago && $pago >= date('Y-m-d')) return true;
+  // consultar la base de datos para actualizar sesión
+  global $pdo;
+  try{
+    // Intentamos obtener plan si existe la columna
+    $st = $pdo->prepare("SELECT pago_hasta, plan FROM usuarios WHERE id = ? LIMIT 1");
+    $st->execute([$_SESSION['uid']]);
+    $row = $st->fetch(PDO::FETCH_ASSOC);
+  } catch (PDOException $e){
+    // Si la columna 'plan' no existe, intentamos solo con pago_hasta
+    try{
+      $st = $pdo->prepare("SELECT pago_hasta FROM usuarios WHERE id = ? LIMIT 1");
+      $st->execute([$_SESSION['uid']]);
+      $row = $st->fetch(PDO::FETCH_ASSOC);
+    } catch (PDOException $e2){
+      return false;
+    }
+  }
+
+  if($row){
+    if(!empty($row['pago_hasta'])) $_SESSION['pago_hasta'] = $row['pago_hasta'];
+    if(!empty($row['plan'])) $_SESSION['plan'] = $row['plan'];
+    return (!empty($row['pago_hasta']) && $row['pago_hasta'] >= date('Y-m-d'));
+  }
+  return false;
+}
+
+function getUserPlan(){
+  if(isset($_SESSION['plan'])) return $_SESSION['plan'];
+  if(empty($_SESSION['uid'])) return null;
+  global $pdo;
+  try{
+    $st = $pdo->prepare("SELECT plan FROM usuarios WHERE id = ? LIMIT 1");
+    $st->execute([$_SESSION['uid']]);
+    $plan = $st->fetchColumn();
+    if($plan) $_SESSION['plan'] = $plan;
+    return $plan;
+  } catch (PDOException $e){
+    // Si la columna 'plan' no existe o hay otro error, devolvemos null
+    return null;
   }
 }
 
