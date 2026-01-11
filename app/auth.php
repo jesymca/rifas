@@ -8,8 +8,15 @@ function user(){
 
 function esAdmin(){
   if(!user()) return false;
-  if(!empty($_SESSION['rol'])) return $_SESSION['rol']==='admin';
+  if(!empty($_SESSION['rol'])) return in_array($_SESSION['rol'], ['admin','superadmin']);
   return ($_SESSION['usuario'] ?? '')==='admin';
+}
+
+function isSuperAdmin(){
+  if(!user()) return false;
+  // rol explícito 'superadmin' o el usuario 'admin' se considera dueño
+  if(!empty($_SESSION['rol']) && $_SESSION['rol']==='superadmin') return true;
+  return (($_SESSION['usuario'] ?? '')==='admin');
 }
 
 function requireLogin(){

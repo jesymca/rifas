@@ -1,5 +1,8 @@
 <?php
 require_once __DIR__.'/../app/db.php';
+if(!isset($in_admin_page)){
+  header('Location: '.URL_BASE.'admin.php?s=compradores'); exit;
+}
 ?>
 <h5>Compradores</h5>
 <?php

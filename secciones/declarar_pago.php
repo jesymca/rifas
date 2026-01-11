@@ -22,6 +22,35 @@ try{
   // si la tabla no existe o no se puede modificar en este entorno evitamos fallo fatal
 } 
 
+// Asegurar tabla de planes y obtener lista de planes (fallback a BRONCE/PLATA/ORO)
+$planes = [['slug'=>'BRONCE','nombre'=>'BRONCE'],['slug'=>'PLATA','nombre'=>'PLATA'],['slug'=>'ORO','nombre'=>'ORO']];
+try{
+  $pdo->exec("CREATE TABLE IF NOT EXISTS planes (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    slug VARCHAR(50) NOT NULL UNIQUE,
+    nombre VARCHAR(150) NOT NULL,
+    descripcion TEXT,
+    precio DECIMAL(10,2) DEFAULT 0,
+    activo TINYINT(1) DEFAULT 1,
+    creado DATETIME DEFAULT CURRENT_TIMESTAMP
+  ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;");
+  $st = $pdo->query("SELECT slug,nombre,precio FROM planes WHERE activo=1 ORDER BY precio ASC, id ASC");
+  $f = $st->fetchAll(PDO::FETCH_ASSOC);
+  if($f && count($f)>0) $planes = $f;
+  // si está vacía, sembrar defaults
+  if(count($f)===0){
+    $ins = $pdo->prepare("INSERT INTO planes (slug,nombre,descripcion,precio) VALUES (?,?,?,?)");
+    $ins->execute(['BRONCE','BRONCE','Una rifa básica (6 dígitos)',10.00]);
+    $ins->execute(['PLATA','PLATA','Rifa con premios por últimos dígitos y número invertido',25.00]);
+    $ins->execute(['ORO','ORO','Rifas avanzadas con múltiples sorteos',50.00]);
+    $st = $pdo->query("SELECT slug,nombre,precio FROM planes WHERE activo=1 ORDER BY precio ASC, id ASC");
+    $f = $st->fetchAll(PDO::FETCH_ASSOC);
+    if($f && count($f)>0) $planes = $f;
+  }
+}catch(PDOException $e){
+  // ignoramos y usamos los defaults en $planes
+}
+
 if($_POST){
   $plan = $_POST['plan'] ?? null;
   $st=$pdo->prepare("INSERT INTO pagos_vendedor (id_usuario,monto,banco,referencia,fecha_pago,plan)
@@ -61,9 +90,9 @@ $plan_pre = $_GET['plan'] ?? $rowUser['plan'] ?? 'BRONCE';
       <div class="mb-3">
         <label>Plan que estás pagando</label>
         <select name="plan" class="form-select">
-          <option value="BRONCE" <?=($plan_pre=='BRONCE')? 'selected':''?>>BRONCE</option>
-          <option value="PLATA"  <?=($plan_pre=='PLATA')? 'selected':''?>>PLATA</option>
-          <option value="ORO"    <?=($plan_pre=='ORO')? 'selected':''?>>ORO</option>
+          <?php foreach($planes as $p): $slug = $p['slug'] ?? $p['slug']; $label = $p['nombre'] ?? $p['slug']; ?>
+            <option value="<?=htmlspecialchars($slug)?>" <?=($plan_pre===$slug)? 'selected':''?>><?=htmlspecialchars($label)?> <?=(isset($p['precio'])? ' - '.number_format($p['precio'],2,',','.'):'')?></option>
+          <?php endforeach; ?>
         </select>
       </div>
       <button class="btn btn-warning">Enviar comprobante</button>

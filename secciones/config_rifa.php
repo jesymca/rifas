@@ -18,6 +18,14 @@ try{
   // En entornos sin la tabla 'rifas' evitamos que se propague la excepción y provocque 500
 } 
 
+// Obtener planes desde DB si existe la tabla 'planes' (fallback a BRONCE/PLATA/ORO)
+$planes = null;
+try{
+  $st = $pdo->query("SELECT slug,nombre,descripcion,precio,activo FROM planes WHERE activo=1 ORDER BY precio ASC, id ASC");
+  $pp = $st->fetchAll(PDO::FETCH_ASSOC);
+  if($pp && count($pp)>0) $planes = $pp;
+}catch(PDOException $e){ /* ignore */ }
+
 if($_SERVER['REQUEST_METHOD']==='POST' && $hasPago){
   // recolectar datos
   $plan = $plan_user ?? ($_POST['plan'] ?? 'BRONCE');
@@ -98,62 +106,81 @@ if($_SERVER['REQUEST_METHOD']==='POST' && $hasPago){
   <h5>Elige un plan para configurar rifas</h5>
   <p class="text-muted">Selecciona un plan y luego procede a declarar el pago para activarlo. El administrador aprobará tu pago y podrás configurar tus rifas.</p>
   <div class="row gy-3">
-    <div class="col-md-4">
-      <div class="card h-100 border-secondary">
-        <div class="card-body">
-          <h5 class="card-title">BRONCE <span class="badge bg-secondary">Recomendado</span></h5>
-          <h6 class="card-subtitle mb-2 text-muted">Una rifa básica (6 dígitos)</h6>
-          <ul>
-            <li>Permite 1 sola rifa de 6 dígitos</li>
-            <li>Subir una foto para el sorteo</li>
-            <li>Permite configurar 1 sorteo (Mañana / Tarde / Noche)</li>
-            <li>Interfaz simple y rápida para vendedores nuevos</li>
-          </ul>
-          <p class="mt-2"><small class="text-muted">Ideal si vendes una sola rifa diaria.</small></p>
-          <a href="<?=URL_BASE?>panel.php?s=pago&plan=BRONCE" onclick="location.href='<?=URL_BASE?>panel.php?s=pago&plan=BRONCE'; return false;" class="btn btn-outline-primary">Seleccionar y pagar BRONCE</a>
+    <?php if($planes !== null): ?>
+      <?php foreach($planes as $p): $slug = $p['slug']; $name = $p['nombre'] ?? $p['slug']; $price = isset($p['precio'])? number_format($p['precio'],2,',','.') : null; ?>
+        <div class="col-md-4">
+          <div class="card h-100 <?=($slug==='BRONCE')? 'border-secondary': (($slug==='PLATA')? 'border-primary':'border-warning') ?>">
+            <div class="card-body">
+              <h5 class="card-title"><?=htmlspecialchars(strtoupper($name))?> <?php if($slug==='BRONCE') echo '<span class="badge bg-secondary">Recomendado</span>'; ?></h5>
+              <h6 class="card-subtitle mb-2 text-muted"><?=htmlspecialchars($p['descripcion'] ?? '')?></h6>
+              <?php if($price): ?><p class="mt-2"><strong>Precio: </strong><?= $price ?> BS</p><?php endif; ?>
+              <a href="<?=URL_BASE?>panel.php?s=pago&plan=<?=urlencode($slug)?>" onclick="location.href='<?=URL_BASE?>panel.php?s=pago&plan=<?=urlencode($slug)?>'; return false;" class="btn <?=($slug==='BRONCE')? 'btn-outline-primary': (($slug==='PLATA')? 'btn-primary':'btn-warning text-dark') ?>">Seleccionar y pagar <?=htmlspecialchars(strtoupper($name))?></a>
+            </div>
+          </div>
+        </div>
+      <?php endforeach; ?>
+    <?php else: ?>
+      <!-- Mantener tarjetas estáticas por compatibilidad -->
+      <div class="col-md-4">
+        <div class="card h-100 border-secondary">
+          <div class="card-body">
+            <h5 class="card-title">BRONCE <span class="badge bg-secondary">Recomendado</span></h5>
+            <h6 class="card-subtitle mb-2 text-muted">Una rifa básica (6 dígitos)</h6>
+            <ul>
+              <li>Permite 1 sola rifa de 6 dígitos</li>
+              <li>Subir una foto para el sorteo</li>
+              <li>Permite configurar 1 sorteo (Mañana / Tarde / Noche)</li>
+              <li>Interfaz simple y rápida para vendedores nuevos</li>
+            </ul>
+            <p class="mt-2"><small class="text-muted">Ideal si vendes una sola rifa diaria.</small></p>
+            <a href="<?=URL_BASE?>panel.php?s=pago&plan=BRONCE" onclick="location.href='<?=URL_BASE?>panel.php?s=pago&plan=BRONCE'; return false;" class="btn btn-outline-primary">Seleccionar y pagar BRONCE</a>
+          </div>
         </div>
       </div>
-    </div>
 
-    <div class="col-md-4">
-      <div class="card h-100 border-primary">
-        <div class="card-body">
-          <h5 class="card-title">PLATA <span class="badge bg-primary">Popular</span></h5>
-          <h6 class="card-subtitle mb-2 text-muted">Más opciones de premio</h6>
-          <ul>
-            <li>1 rifa (3 o 6 dígitos)</li>
-            <li>Premios por últimos X dígitos (ej. últimos 5 dígitos)</li>
-            <li>Premios para número invertido (p. ej. 123456 ↔ 654321)</li>
-            <li>Los boletos comercializados participan en los sorteos configurados</li>
-          </ul>
-          <p class="mt-2"><small class="text-muted">Perfecto para rifas con premios más completos.</small></p>
-          <a href="<?=URL_BASE?>panel.php?s=pago&plan=PLATA" onclick="location.href='<?=URL_BASE?>panel.php?s=pago&plan=PLATA'; return false;" class="btn btn-primary">Seleccionar y pagar PLATA</a>
+      <div class="col-md-4">
+        <div class="card h-100 border-primary">
+          <div class="card-body">
+            <h5 class="card-title">PLATA <span class="badge bg-primary">Popular</span></h5>
+            <h6 class="card-subtitle mb-2 text-muted">Más opciones de premio</h6>
+            <ul>
+              <li>1 rifa (3 o 6 dígitos)</li>
+              <li>Premios por últimos X dígitos (ej. últimos 5 dígitos)</li>
+              <li>Premios para número invertido (p. ej. 123456 ↔ 654321)</li>
+              <li>Los boletos comercializados participan en los sorteos configurados</li>
+            </ul>
+            <p class="mt-2"><small class="text-muted">Perfecto para rifas con premios más completos.</small></p>
+            <a href="<?=URL_BASE?>panel.php?s=pago&plan=PLATA" onclick="location.href='<?=URL_BASE?>panel.php?s=pago&plan=PLATA'; return false;" class="btn btn-primary">Seleccionar y pagar PLATA</a>
+          </div>
         </div>
       </div>
-    </div>
 
-    <div class="col-md-4">
-      <div class="card h-100 border-warning">
-        <div class="card-body">
-          <h5 class="card-title">ORO <span class="badge bg-warning text-dark">Avanzado</span></h5>
-          <h6 class="card-subtitle mb-2 text-muted">Todas las opciones + múltiples sorteos</h6>
-          <ul>
-            <li>Todo lo de PLATA (últimos, invertido)</li>
-            <li>Permite configurar más de 1 sorteo (Mañana, Tarde y/o Noche)</li>
-            <li>Ideal para vendedores con alto volumen y múltiples sorteos por día</li>
-            <li>Mayor flexibilidad en la configuración de premios</li>
-          </ul>
-          <p class="mt-2"><small class="text-muted">Recomendado si operas varios sorteos diarios (Lotería del Táchira: Mañana/Tarde/Noche).</small></p>
-          <a href="<?=URL_BASE?>panel.php?s=pago&plan=ORO" onclick="location.href='<?=URL_BASE?>panel.php?s=pago&plan=ORO'; return false;" class="btn btn-warning text-dark">Seleccionar y pagar ORO</a>
+      <div class="col-md-4">
+        <div class="card h-100 border-warning">
+          <div class="card-body">
+            <h5 class="card-title">ORO <span class="badge bg-warning text-dark">Avanzado</span></h5>
+            <h6 class="card-subtitle mb-2 text-muted">Todas las opciones + múltiples sorteos</h6>
+            <ul>
+              <li>Todo lo de PLATA (últimos, invertido)</li>
+              <li>Permite configurar más de 1 sorteo (Mañana, Tarde y/o Noche)</li>
+              <li>Ideal para vendedores con alto volumen y múltiples sorteos por día</li>
+              <li>Mayor flexibilidad en la configuración de premios</li>
+            </ul>
+            <p class="mt-2"><small class="text-muted">Recomendado si operas varios sorteos diarios (Lotería del Táchira: Mañana/Tarde/Noche).</small></p>
+            <a href="<?=URL_BASE?>panel.php?s=pago&plan=ORO" onclick="location.href='<?=URL_BASE?>panel.php?s=pago&plan=ORO'; return false;" class="btn btn-warning text-dark">Seleccionar y pagar ORO</a>
+          </div>
         </div>
       </div>
-    </div>
+    <?php endif; ?>
   </div>
   <div class="mt-3">
     <p class="small text-muted">Al seleccionar un plan serás dirigido a la pantalla para declarar el pago correspondiente; después de la aprobación por el administrador tu plan quedará activo y podrás configurar tus rifas.</p>
   </div>
 <?php else: ?>
-  <h5>Configurar rifa (Plan: <?=htmlspecialchars(strtoupper($plan_user ?? 'BRONCE'))?>)</h5>
+  <?php $plan_label = strtoupper($plan_user ?? 'BRONCE'); if(isset($planes) && is_array($planes)){
+    foreach($planes as $pp){ if($pp['slug'] === ($plan_user ?? 'BRONCE')){ $plan_label = strtoupper($pp['nombre']); break; } }
+  } ?>
+  <h5>Configurar rifa (Plan: <?=htmlspecialchars($plan_label)?>)</h5>
   <form method="post" enctype="multipart/form-data" id="form_rifa">
     <div class="mb-3"><input name="titulo" class="form-control" placeholder="Nombre del sorteo" required></div>
     <div class="row mb-3">

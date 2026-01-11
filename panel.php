@@ -16,7 +16,22 @@ include 'assets/header.php';
 ?>
 <div class="container">
   <h4>Hola <?=htmlspecialchars(user())?> – tu pago vence el <?=$_SESSION['pago_hasta']?></h4>
-  <?php if($s === 'config' && !$hasPago): ?>
+  <?php if($s === 'config' && isSuperAdmin()): ?>
+    <div class="row">
+      <div class="col-md-3">
+        <div class="list-group">
+          <a href="/rifas/admin.php?s=super" class="list-group-item list-group-item-action">Superadmin</a>
+          <a href="/rifas/admin.php?s=vendedores" class="list-group-item list-group-item-action">Vendedores</a>
+          <a href="/rifas/admin.php?s=pagos" class="list-group-item list-group-item-action">Pagos</a>
+          <a href="/rifas/admin.php?s=config_rifa" class="list-group-item list-group-item-action">Configurar rifas (admin)</a>
+          <a href="?s=config" class="list-group-item list-group-item-action active">Planes</a>
+        </div>
+      </div>
+      <div class="col-md-9">
+        <?php include 'secciones/planes_admin.php'; ?>
+      </div>
+    </div>
+  <?php elseif($s === 'config' && !$hasPago): ?>
     <!-- Usuario sin pago: mostramos solo las 3 opciones de planes en ancho completo -->
     <div class="row">
       <div class="col-12">
